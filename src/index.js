@@ -6,6 +6,7 @@ var bodyParser = require("body-parser");
 
 // Using `public` for static files: http://expressjs.com/en/starter/static-files.html
 app.use(express.static("public"));
+app.use(bodyParser.json());
 
 // Initial set of users to populate the database with
 var defaultUsers = ["Carly"];
@@ -77,6 +78,9 @@ sequelize
       },
       endTimeStr: {
         type: Sequelize.STRING
+      },
+      magnitudeSec: {
+        type: Sequelize.INTEGER
       },
       activity: {
         type: Sequelize.STRING
@@ -154,6 +158,7 @@ app.get("/", function(request, response) {
  * ACTIVITIES API
  */
 app.get("/activities", function(request, response) {
+  console.log("/activities", request.body);
   Activity.findAll().then(activities => response.send(activities));
 });
 
@@ -161,11 +166,32 @@ app.get("/activities", function(request, response) {
  * ACTIVITY LOG API
  */
 app.get("/log", function(request, response) {
+  console.log("/log", request.body);
   ActivityLog.findAll().then(logs => response.send(logs));
 });
 
 app.post("/log", function(request, response) {
+  console.log("create /log", request.body);
   ActivityLog.create(request.body).then(logs => response.send(logs));
+});
+
+app.get("/logs", function(request, response) {
+  console.log("/logs get", request.body);
+  const year = request.body.year;
+  const month = request.body.month;
+  const day = request.body.day;
+  ActivityLog.findAll({
+    where: {
+      startTimeMs: {
+        $between: [new Date(year, month, day), new Date(year, month, day + 1)]
+      }
+    }
+  }).then(logs => response.send(logs));
+});
+
+app.post("/logs", bodyParser.json(), function(request, response) {
+  console.log("request /logs", request.body);
+  ActivityLog.bulkCreate(request.body).then(logs => response.send(logs));
 });
 
 // Listen on port 8080
