@@ -3,9 +3,13 @@ var express = require("express");
 var Sequelize = require("sequelize");
 var app = express();
 var bodyParser = require("body-parser");
+const url = require("url");
+const querystring = require("querystring");
 
 // Using `public` for static files: http://expressjs.com/en/starter/static-files.html
 app.use(express.static("public"));
+// Use bodyParser to parse application/x-www-form-urlencoded form data
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // Initial set of users to populate the database with
@@ -19,9 +23,6 @@ const defaultActivities = [
   "Writing Code",
   "Learning"
 ];
-
-// Use bodyParser to parse application/x-www-form-urlencoded form data
-var urlencodedParser = bodyParser.urlencoded({ extended: false });
 
 // setup a new database using database credentials set in .env
 var sequelize = new Sequelize(
@@ -67,17 +68,23 @@ sequelize
     });
 
     ActivityLog = sequelize.define("activityLog", {
-      startTimeMs: {
-        type: Sequelize.INTEGER
+      // startTimeMs: {
+      //   type: Sequelize.INTEGER
+      // },
+      // startTimeStr: {
+      //   type: Sequelize.STRING
+      // },
+      // endTimeMs: {
+      //   type: Sequelize.INTEGER
+      // },
+      // endTimeStr: {
+      //   type: Sequelize.STRING
+      // },
+      startDate: {
+        type: Sequelize.DATE
       },
-      startTimeStr: {
-        type: Sequelize.STRING
-      },
-      endTimeMs: {
-        type: Sequelize.INTEGER
-      },
-      endTimeStr: {
-        type: Sequelize.STRING
+      endDate: {
+        type: Sequelize.DATE
       },
       magnitudeSec: {
         type: Sequelize.INTEGER
@@ -116,7 +123,7 @@ function setup() {
       });
     });
   });
-  ActivityLog.sync();
+  ActivityLog.sync({ force: true });
 }
 
 app.use((req, res, next) => {
@@ -137,7 +144,7 @@ app.get("/users", function(request, response) {
 });
 
 // create a new entry in the users table
-app.post("/new", urlencodedParser, function(request, response) {
+app.post("/new", function(request, response) {
   User.create({ name: request.body.user });
   response.redirect("/");
 });
@@ -176,17 +183,43 @@ app.post("/log", function(request, response) {
 });
 
 app.get("/logs", function(request, response) {
-  console.log("/logs get", request.body);
-  const year = request.body.year;
-  const month = request.body.month;
-  const day = request.body.day;
-  ActivityLog.findAll({
+  const parsedUrl = url.parse(request.url);
+  const parsedParams = querystring.parse(parsedUrl.query);
+  console.log("/logs get", parsedParams);
+  const year = parseInt(parsedParams.year, 10);
+  const month = parseInt(parsedParams.month, 10);
+  const day = parseInt(parsedParams.day, 10);
+  // const offset = -parseInt(parsedParams.offset, 10);
+  console.log("year", year, "month", month, "day", day);
+
+  const startTimeMsQuery = {
     where: {
       startTimeMs: {
-        $between: [new Date(year, month, day), new Date(year, month, day + 1)]
+        $between: [
+          new Date(year, month, day, 0, 0, 0).getMilliseconds(),
+          new Date(year, month, day + 1, 0, 0, 0).getMilliseconds()
+        ]
       }
     }
-  }).then(logs => response.send(logs));
+  };
+
+  const start = new Date(year, month, day, 0, 0, 0);
+  // start.setMinutes(offset);
+  console.log("day plus one", day + 1);
+  const end = new Date(year, month, day + 1, 0, 0, 0);
+  // end.setMinutes(offset);
+  console.log("STARTTTTTTTTTT", start);
+  console.log("ENDDDDDDDDDDDD", end);
+  // end.setDate(day + 1);
+  const dateQuery = {
+    where: {
+      startDate: {
+        [Sequelize.Op.between]: [start, end]
+      }
+    }
+  };
+  // console.log("date query=========", dateQuery.where.startTimeStr);
+  ActivityLog.findAll(dateQuery).then(logs => response.send(logs));
 });
 
 app.post("/logs", bodyParser.json(), function(request, response) {
