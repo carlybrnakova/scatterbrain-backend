@@ -123,7 +123,7 @@ function setup() {
       });
     });
   });
-  ActivityLog.sync({ force: true });
+  ActivityLog.sync({ force: false });
 }
 
 app.use((req, res, next) => {
@@ -192,13 +192,19 @@ app.get("/logs", function(request, response) {
   // const offset = -parseInt(parsedParams.offset, 10);
   console.log("year", year, "month", month, "day", day);
 
+  let startDate;
+  let endDate;
+  if (day) {
+    startDate = new Date(year, month, day, 0, 0, 0);
+    endDate = new Date(year, month, day + 1, 0, 0, 0);
+  } else {
+    startDate = new Date(year, month, 0, 0, 0, 0);
+    endDate = new Date(year, month + 1, 0, 0, 0, 0);
+  }
   const startTimeMsQuery = {
     where: {
-      startTimeMs: {
-        $between: [
-          new Date(year, month, day, 0, 0, 0).getMilliseconds(),
-          new Date(year, month, day + 1, 0, 0, 0).getMilliseconds()
-        ]
+      startDate: {
+        [Sequelize.Op.between]: [startDate, endDate]
       }
     }
   };
@@ -211,13 +217,7 @@ app.get("/logs", function(request, response) {
   console.log("STARTTTTTTTTTT", start);
   console.log("ENDDDDDDDDDDDD", end);
   // end.setDate(day + 1);
-  const dateQuery = {
-    where: {
-      startDate: {
-        [Sequelize.Op.between]: [start, end]
-      }
-    }
-  };
+  const dateQuery = startTimeMsQuery;
   // console.log("date query=========", dateQuery.where.startTimeStr);
   ActivityLog.findAll(dateQuery).then(logs => response.send(logs));
 });
